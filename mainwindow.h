@@ -39,6 +39,8 @@ private slots:
     void compileCode();
     void handleCompilationFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void updateCompilerPath(const QString &newPath);
+    bool maybeSave(int index);
+    bool autoSaveFile(int index);
 
 private:
     void createMenus();

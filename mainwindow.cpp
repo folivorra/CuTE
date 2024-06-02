@@ -324,12 +324,15 @@ void MainWindow::closeAllT()
 }
 
 void MainWindow::closeTab(int index) {
-    QWidget *widget = tabWidget->widget(index);
-    if (widget) {
-        tabWidget->removeTab(index);
-        delete widget;
-        if (index < fileNames.size()) {
-            fileNames.removeAt(index);
+    tabWidget->setCurrentIndex(index);
+    if (maybeSave(index)) {
+        QWidget *widget = tabWidget->widget(index);
+        if (widget) {
+            tabWidget->removeTab(index);
+            delete widget;
+            if (index < fileNames.size()) {
+                fileNames.removeAt(index);
+            }
         }
     }
 }
@@ -397,6 +400,12 @@ void MainWindow::updateAllEditors() {
 }
 
 void MainWindow::closeEvent(QCloseEvent *event) {
+    for (int i = 0; i < tabWidget->count(); ++i) {
+        if (!maybeSave(i)) {
+            event->ignore();
+            return;
+        }
+    }
     settingsDialog::clearSettings();
     QMainWindow::closeEvent(event); // Вызов базового метода для завершения закрытия
 }
@@ -413,6 +422,9 @@ void MainWindow::closeWelcomeTab() {
 }
 
 void MainWindow::compileCode() {
+    int currentIndex = tabWidget->currentIndex();
+    autoSaveFile(currentIndex);
+
     if (!currentFilePath.isEmpty()) {
         if (compilerPath.size() == 0) {
             QMessageBox::warning(this, tr("Error"), tr("Compiler path is not set."));
@@ -466,5 +478,55 @@ void MainWindow::handleCompilationFinished(int exitCode, QProcess::ExitStatus ex
         process->deleteLater();
     } else {
         QMessageBox::critical(this, tr("Error"), tr("Failed to cast sender to QProcess."));
+    }
+}
+
+bool MainWindow::autoSaveFile(int index) {
+    CodeEditor *editor = qobject_cast<CodeEditor *>(tabWidget->widget(index));
+    if (!editor) {
+        return false;
+    }
+
+    QString currentFile = fileNames[index];
+    if (currentFile.isEmpty()) {
+        QString fileName = QFileDialog::getSaveFileName(this, tr("Save file as..."), "",
+                                                        tr("C++ Files (*.cpp *.h);;All Files (*)"));
+        if (fileName.isEmpty()) {
+            return false;
+        }
+        currentFile = fileName;
+    }
+
+    return saveToFile(currentFile, index);
+}
+
+bool MainWindow::maybeSave(int index) {
+    if (index == -1) {
+        return true;
+    }
+
+    CodeEditor *editor = qobject_cast<CodeEditor *>(tabWidget->widget(index));
+    if (!editor || !editor->isModified) {
+        return true;
+    }
+
+    QString fileName = tabWidget->tabText(index);
+    if (fileName.endsWith("*")) {
+        fileName.chop(1); // Удаляем последний символ, если это '*'
+    }
+
+    const QMessageBox::StandardButton ret
+        = QMessageBox::warning(this, tr("Save Changes"),
+                               tr("The document '%1' has been modified.\n"
+                                  "Do you want to save your changes?")
+                                   .arg(fileName),
+                               QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+    switch (ret) {
+    case QMessageBox::Save:
+        return autoSaveFile(index);
+    case QMessageBox::Cancel:
+        return false;
+    default:
+        return true;
     }
 }

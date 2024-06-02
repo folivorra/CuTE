@@ -6,6 +6,7 @@
 #include <QPlainTextEdit>
 #include <QAbstractItemView>
 #include <QScrollBar>
+#include <QApplication>
 
 CodeEditor::CodeEditor(QWidget *parent) : QPlainTextEdit(parent), c(nullptr), highlighter(nullptr) {
     lineNumberArea = new LineNumberArea(this);
@@ -179,13 +180,18 @@ void CodeEditor::keyPressEvent(QKeyEvent *e) {
         switch (e->key()) {
         case Qt::Key_Enter:
         case Qt::Key_Return:
-            insertCompletion(c->currentCompletion());
+        case Qt::Key_Tab:
+            insertCompletion(c->popup()->currentIndex().data(Qt::DisplayRole).toString());
+            c->popup()->hide();
             return;
         case Qt::Key_Escape:
-        case Qt::Key_Tab:
-        case Qt::Key_Backtab:
-            e->ignore();
-            return; // let the completer do default behavior
+            c->popup()->hide();
+            return;
+        case Qt::Key_Up:
+        case Qt::Key_Down:
+            // Передаем событие напрямую в popup через метод event
+            QApplication::sendEvent(c->popup(), e);
+            return;
         default:
             break;
         }

@@ -70,5 +70,6 @@ private:
     QString currentFilePath;
     QString compilerPath;
     settingsDialog *dialog;
+
 };
 #endif // MAINWINDOW_H
